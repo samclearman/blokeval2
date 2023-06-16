@@ -60,7 +60,7 @@ class Game:
         self._moves = []
 
         for m in moves:
-            self.play_move(move)
+            self.play_move(m)
 
     def __str__(self):
         status = (

@@ -1,7 +1,7 @@
 import json
 from crayons import red, green, blue, yellow
 
-from .board import Board, random_move, score
+from .board import Board, Move, random_move, score
 from .ominos import Transformation
 
 PLAYERS = 4
@@ -34,8 +34,8 @@ def random_game():
     while not g.game_over:
         b = g.board
         player = b.next_player
-        omino_idx, transformation, x, y = random_move(b, player)
-        g.play_move((player, omino_idx, transformation, x, y))
+        move = random_move(b, player)
+        g.play_move(move)
     return g
 
 def play_game(p1, p2, p3, p4):
@@ -48,8 +48,13 @@ def play_game(p1, p2, p3, p4):
         g.play_move(move)
     return g
 
+def load_move(json):
+    p, i, t, x, y = json
+    return Move(p, i, Transformation(*t), x, y)
+
 def load_game(json):
-    g = Game(moves = json['moves'])
+    moves = [load_move(m) for m in json['moves']]
+    g = Game(moves)
     return g
 
 class Game:
@@ -71,7 +76,7 @@ class Game:
         return status + '\n' + str(self._b)
 
     def play_move(self, move):
-        self._b.place(*move)
+        self._b.place(move)
         self._moves.append(move)
         self._snapshots.append(cell_values(self._b))
         for p in self._scores:

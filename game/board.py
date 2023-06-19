@@ -1,3 +1,4 @@
+from collections import namedtuple
 from random import random, shuffle
 
 from recordtype import recordtype
@@ -9,6 +10,7 @@ WIDTH = 20
 HEIGHT = 20
 
 Cell = recordtype('Cell', ['i', 'j', 'val'])
+Move = namedtuple('Move', ['player', 'omino_idx', 'transformation', 'x', 'y'])
 
 def in_bounds(cells, positions):
     for i, j in positions:
@@ -82,7 +84,7 @@ def valid_moves(b, player, randomize = True):
                     for flips in f:
                         transformation = Transformation(rotations, flips)
                         if validate_place(b, player, omino_idx, transformation, x, y):
-                            yield (omino_idx, transformation, x, y)
+                            yield Move(player, omino_idx, transformation, x, y)
 
 
 def has_valid_move(b, player):
@@ -154,7 +156,8 @@ class Board:
         s += '-' * 20
         return s
 
-    def place(self, player, omino_idx, transformation, x, y):
+    def place(self, move):
+        player, omino_idx, transformation, x, y = move
         assert player == self.next_player
         assert validate_place(self, player, omino_idx, transformation, x, y)
         assert omino_idx in self.ominos_remaining[player]

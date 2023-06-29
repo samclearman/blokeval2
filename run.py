@@ -9,17 +9,23 @@ import argparse
 from uuid import uuid4 as uuid
 
 from game import game
-from eval import train
+from eval import train as _train
 
 stub = modal.Stub(name="blockeval")
 image = modal.Image.debian_slim().pip_install(
     "crayons",
-    "recordtype"
+    "recordtype",
+    "jax[cpu]",
+    "jax",
 )
 
 @stub.function(image=image)
 def random_game(_):
     return game.random_game()
+
+@stub.function(image=image)
+def train(data):
+    return _train(data)
 
 @stub.local_entrypoint()
 def main(games_path: str):
@@ -43,7 +49,7 @@ def main(games_path: str):
     
     # Train a model on the games
     data = [(g.masks[-1], g.winners) for g in games]
-    evaluator = train(data)
+    evaluator = train.call(data)
 
 if __name__ == '__main__':
     sig = inspect.signature(main.raw_f)

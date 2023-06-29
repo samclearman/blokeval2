@@ -1,5 +1,6 @@
 crayons==0.4.0
 jax==0.4.13
+# locally: "jax[cpu]"
 modal==0.49.2429
 modal_client==0.49.2429
 recordtype==1.4

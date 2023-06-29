@@ -1,10 +1,15 @@
+#!python
+
+import inspect
 import json
 import modal
 import os
 import random
+import argparse
 from uuid import uuid4 as uuid
 
 from game import game
+from eval import train
 
 stub = modal.Stub(name="blockeval")
 image = modal.Image.debian_slim().pip_install(
@@ -35,3 +40,16 @@ def main(games_path: str):
             with open(os.path.join(games_path, str(uuid()) + '.game'), 'w') as f:
                 f.write(g.json)
         games += new_games
+    
+    # Train a model on the games
+    data = [(g.masks[-1], g.winners) for g in games]
+    evaluator = train(data)
+
+if __name__ == '__main__':
+    sig = inspect.signature(main.raw_f)
+    parser = argparse.ArgumentParser()
+    for param in sig.parameters.values():
+        print(param.name)
+        parser.add_argument(f'--{param.name}', required=True)
+    args = parser.parse_args()
+    main(**vars(args))

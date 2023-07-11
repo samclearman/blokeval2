@@ -29,14 +29,16 @@ def train(data):
 
 @stub.local_entrypoint()
 def main(games_path: str):
-    n_games = 10
+    n_games = 10000
 
     # Load games
     print(f'Loading games from {games_path}...')
     games = []
     for game_file in os.listdir(games_path)[:n_games]:
+        print(f'Loading {game_file}')
         with open(os.path.join(games_path, game_file), 'r') as f:
             games.append(game.load_game(json.load(f)))
+    print('Loaded')
 
     # Generate games
     if (len(games) < n_games):
@@ -47,8 +49,12 @@ def main(games_path: str):
                 f.write(g.json)
         games += new_games
     
+
+    print('We have the games')
+    
     # Train a model on the games
     data = [(g.masks[-1], g.winners) for g in games]
+    print('Training model...')
     evaluator = train.call(data)
 
 if __name__ == '__main__':

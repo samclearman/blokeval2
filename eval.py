@@ -23,13 +23,20 @@ def predict(params, input):
 
 
 def error(params, input, target):
-    raw = dense(params, input)
-    return jnp.dot(-jnn.log_softmax(raw), target)
+    logits = dense(params, input)
+    return jnp.dot(-jnn.log_softmax(logits), target)
 batched_error = vmap(error, in_axes=(None, 0, 0))
 
 def loss(params, inputs, targets):
     errs = batched_error(params, inputs, targets)
     return jnp.mean(errs)
+
+def acc(params, input, target):
+    return (predict(params, input) == jnp.argmax(target)).astype(jnp.float32)
+batched_accuracy = vmap(acc, in_axes=(None, 0, 0))
+def accuracy(params, inputs, targets):
+    accs = batched_accuracy(params, inputs, targets)
+    return jnp.mean(accs)
 
 # @jit
 def update(params, inputs, targets, lr):
@@ -49,21 +56,26 @@ def init_params(key):
 def data_to_jnp_arrays(data):
     return jnp.array([r[0] for r in data]), jnp.array([r[1] for r in data])
 
-n_epochs = 1000
-lr = 0.001
+n_epochs = 100
+lr = 0.1
 def train(data):
     # split data into inputs and targets
-    train_inputs, train_targets = data_to_jnp_arrays(data[:int(len(data) * 0.8)])
+    train_data = data[:int(len(data) * 0.8)]
     test_inputs, test_targets = data_to_jnp_arrays(data[int(len(data) * 0.8):])
 
     seed = pyrandom.randint(0, 1000)
     print("Seed {}".format(seed))
     key = random.PRNGKey(seed)
     params = init_params(key)
+    print(f'{"":12} {"Train":25} {"Test":25}')
+    print(f'{"Epoch":12} {"Accuracy":12} {"Loss":12} {"Accuracy":12} {"Loss":12}')
     for epoch in range(n_epochs):
+        train_inputs, train_targets = data_to_jnp_arrays(pyrandom.sample(train_data, 128))
         training_loss = loss(params, train_inputs, train_targets)
+        training_accuracy = accuracy(params, train_inputs, train_targets)
         test_loss = loss(params, test_inputs, test_targets)
-        print(f'Epoch {epoch} train loss: {training_loss}, test loss: {test_loss}')
+        test_accuracy = accuracy(params, test_inputs, test_targets)
+        print(f'{epoch:12} {training_accuracy:12.4f} {training_loss:12.4f} {test_accuracy:12.4f} {test_loss:12.4f}')
         params = update(params, train_inputs, train_targets, lr)
     def evaluator(input):
         return predict(params, input)

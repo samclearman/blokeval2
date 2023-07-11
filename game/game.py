@@ -1,7 +1,7 @@
 import json
 from crayons import red, green, blue, yellow
 
-from .board import Board, Move, random_move, score
+from .board import Board, Move, random_move, score, load_board
 from .ominos import Transformation
 
 PLAYERS = 4
@@ -54,6 +54,14 @@ def load_move(json):
 
 def load_game(json):
     moves = [load_move(m) for m in json['moves']]
+    if 'snapshots' in json and 'board' in json and 'scores' in json:
+        print('shortcut')
+        g = Game()
+        g._moves = moves
+        g._snapshots = json['snapshots']
+        g._b = load_board(json['board'])
+        g._scores = json['scores']
+        return g
     g = Game(moves)
     return g
 
@@ -84,8 +92,15 @@ class Game:
 
     @property
     def json(self):
+        return self.to_json()
+    
+    def to_json(self, full = False):
         return json.dumps({
             'moves': self._moves,
+            'snapshots': self._snapshots if full else None,
+            'board': self._b.json if full else None,
+            'scores': self._scores if full else None
+
         })
 
     @property

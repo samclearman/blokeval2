@@ -120,6 +120,14 @@ def score(b, player):
         score -= get_omino_score(omino_idx)
     return score
 
+def load_board(json):
+    b = Board()
+    b.cells = [Cell(c['i'], c['j'], c['val']) for c in json['cells']]
+    b.ominos_remaining = {k: set(v) for k,v in json['ominos_remaining'].items()}
+    b.next_player = json['next_player']
+    b.game_over = json['game_over']
+    return b
+
 class Board:
     def __init__(self, cols = WIDTH, rows = HEIGHT, players = PLAYERS):
         self.cells = []
@@ -138,14 +146,16 @@ class Board:
         #hack, see has_valid_move and random_move
         self._next_move = None
 
-        self.alive = {
-            1: True,
-            2: True,
-            3: True,
-            4: True
-        }
-
         self.game_over = False
+
+    @property
+    def json(self):
+        return {
+            'cells': [{'i': c.i, 'j': c.j, 'val': c.val} for c in self.cells],
+            'ominos_remaining': {k: list(v) for k, v in self.ominos_remaining.items()},
+            'next_player': self.next_player,
+            'game_over': self.game_over
+        }
 
     def __str__(self):
         s = ('-' * 20) + '\n'
@@ -171,12 +181,14 @@ class Board:
         if not self.next_player:
             self.game_over = True
 
-def place_cells(cells, player, omino_idx, transformation, x, y):
+def place_cells(cells, move):
+    player, omino_idx, transformation, x, y = move
     positions = get_omino_positions(omino_idx, transformation, x, y)
     for i, j in positions:
         cells[(i * WIDTH) + j].val = player
 
-def unplace_cells(cells, player, omino_idx, transformation, x, y):
+def unplace_cells(cells, move):
+    player, omino_idx, transformation, x, y = move
     positions = get_omino_positions(omino_idx, transformation, x, y)
     for i, j in positions:
         cells[(i * WIDTH) + j].val = 0

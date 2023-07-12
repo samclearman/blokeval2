@@ -59,30 +59,25 @@ def init_params_handpicked(key):
     b = jnp.array([0.0, 0, 0, 0])
     return ((w, b),)
 
-def data_to_jnp_arrays(data):
-    return jnp.array([r[0] for r in data]), jnp.array([r[1] for r in data])
-
-n_epochs = 1000
+n_epochs = 1
 lr = 0.1
-def train(data):
-    # split data into inputs and targets
-    train_data = data[:int(len(data) * 0.8)]
-    test_inputs, test_targets = data_to_jnp_arrays(data[int(len(data) * 0.8):])
-
+def train(training_batches, test_set):
     seed = pyrandom.randint(0, 1000)
     print("Seed {}".format(seed))
     key = random.PRNGKey(seed)
     params = init_params(key)
+    test_inputs, test_targets = test_set
     print(f'{"":12} {"Train":25} {"Test":25}')
     print(f'{"Epoch":12} {"Accuracy":12} {"Loss":12} {"Accuracy":12} {"Loss":12}')
     for epoch in range(n_epochs):
-        train_inputs, train_targets = data_to_jnp_arrays(pyrandom.sample(train_data, 128))
-        training_loss = loss(params, train_inputs, train_targets)
-        training_accuracy = accuracy(params, train_inputs, train_targets)
-        test_loss = loss(params, test_inputs, test_targets)
-        test_accuracy = accuracy(params, test_inputs, test_targets)
-        print(f'{epoch:12} {training_accuracy:12.4f} {training_loss:12.4f} {test_accuracy:12.4f} {test_loss:12.4f}')
-        params = update(params, train_inputs, train_targets, lr)
+        for batch in training_batches:
+            train_inputs, train_targets = batch
+            training_loss = loss(params, train_inputs, train_targets)
+            training_accuracy = accuracy(params, train_inputs, train_targets)
+            test_loss = loss(params, test_inputs, test_targets)
+            test_accuracy = accuracy(params, test_inputs, test_targets)
+            print(f'{epoch:12} {training_accuracy:12.4f} {training_loss:12.4f} {test_accuracy:12.4f} {test_loss:12.4f}')
+            params = update(params, train_inputs, train_targets, lr)
     def evaluator(input):
         return predict(params, input)
     return evaluator

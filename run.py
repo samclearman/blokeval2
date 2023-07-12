@@ -8,6 +8,8 @@ import random
 import argparse
 from uuid import uuid4 as uuid
 
+import jax.numpy as jnp
+
 from game import game
 from eval import train as _train
 
@@ -53,8 +55,11 @@ def random_game(_):
     return game.random_game()
 
 @stub.function(image=training_image, gpu="any")
-def train(data):
-    return _train(data)
+def train(training_batches, test_set):
+    return _train(training_batches, test_set)
+
+def data_to_jnp_arrays(data):
+    return jnp.array([r[0] for r in data]), jnp.array([r[1] for r in data])
 
 @stub.local_entrypoint()
 def main(games_path: str):
@@ -86,8 +91,13 @@ def main(games_path: str):
     
     # Train a model on the games
     data = [(g.masks[-1], g.winners) for g in games]
+    def batch():
+        for _ in range(1000):
+            yield data_to_jnp_arrays(random.sample(data[:int(len(data) * 0.8)], 128))
+    training_batches = batch()
+    test_set = data_to_jnp_arrays(data[int(len(data) * 0.8):])
     print('Training model...')
-    evaluator = train(data)
+    evaluator = train(training_batches, test_set)
 
 if __name__ == '__main__':
     sig = inspect.signature(main.raw_f)

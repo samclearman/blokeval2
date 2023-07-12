@@ -55,12 +55,11 @@ def load_move(json):
 def load_game(json):
     moves = [load_move(m) for m in json['moves']]
     if 'snapshots' in json and 'board' in json and 'scores' in json:
-        print('shortcut')
         g = Game()
         g._moves = moves
         g._snapshots = json['snapshots']
         g._b = load_board(json['board'])
-        g._scores = json['scores']
+        g._scores = {int(k): v for k,v in json['scores'].items()}
         return g
     g = Game(moves)
     return g

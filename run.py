@@ -12,32 +12,64 @@ from game import game
 from eval import train as _train
 
 stub = modal.Stub(name="blockeval")
-image = modal.Image.debian_slim().pip_install(
+basic_image = modal.Image.debian_slim().pip_install(
     "crayons",
     "recordtype",
     "jax[cpu]",
     "jax",
 )
+# training_image = modal.Image.from_dockerhub(
+#     "nvidia/cuda:12.2.0-runtime-ubuntu22.04",
+#     setup_dockerfile_commands=[
+#         "RUN apt-get update",
+#         "RUN apt-get install -y python3 python3-pip python-is-python3",
+#     ],
+# ).pip_install(
+#     "crayons",
+#     "recordtype",
+#     "jax[cuda12_pip]",
+# )
+training_image = modal.Image.debian_slim().run_commands(
+    'pip install --upgrade "jax[cuda11_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html'
+).pip_install(
+    "crayons",
+    "recordtype",
+)
+# training_image = modal.Image.from_dockerhub(
+#     "nvidia/cuda:12.2.0-runtime-ubuntu22.04",
+#     setup_dockerfile_commands=[
+#         "RUN apt-get update",
+#         "RUN apt-get install -y python3 python3-pip python-is-python3",
+#     ],
+# ).run_commands(
+#     'pip install --upgrade "jax[cuda12_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html'
+# ).pip_install(
+#     "crayons",
+#     "recordtype",
+# )
 
-@stub.function(image=image)
+@stub.function(image=basic_image)
 def random_game(_):
     return game.random_game()
 
-@stub.function(image=image)
+@stub.function(image=training_image, gpu="any")
 def train(data):
     return _train(data)
 
 @stub.local_entrypoint()
 def main(games_path: str):
-    n_games = 10000
+    n_games = 200
 
     # Load games
     print(f'Loading games from {games_path}...')
     games = []
-    for game_file in os.listdir(games_path)[:n_games]:
-        print(f'Loading {game_file}')
+    for game_file in os.listdir(games_path):
+        if (not game_file.endswith('.full')):
+            continue
         with open(os.path.join(games_path, game_file), 'r') as f:
             games.append(game.load_game(json.load(f)))
+            if len(games) >= n_games:
+                break
     print('Loaded')
 
     # Generate games
@@ -55,7 +87,7 @@ def main(games_path: str):
     # Train a model on the games
     data = [(g.masks[-1], g.winners) for g in games]
     print('Training model...')
-    evaluator = train.call(data)
+    evaluator = train(data)
 
 if __name__ == '__main__':
     sig = inspect.signature(main.raw_f)

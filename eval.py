@@ -53,10 +53,16 @@ def _init_params(key):
 def init_params(key):
     return tuple(_init_params(key))
 
+def init_params_handpicked(key):
+    s = 20 * 20
+    w = jnp.array([[1.0,0,0,0]] * s + [[0.0,1,0,0]] * s + [[0.0,0,1,0]] * s + [[0.0,0,0,1]] * s)
+    b = jnp.array([0.0, 0, 0, 0])
+    return ((w, b),)
+
 def data_to_jnp_arrays(data):
     return jnp.array([r[0] for r in data]), jnp.array([r[1] for r in data])
 
-n_epochs = 100
+n_epochs = 1000
 lr = 0.1
 def train(data):
     # split data into inputs and targets

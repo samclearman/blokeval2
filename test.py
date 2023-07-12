@@ -1,7 +1,10 @@
 # from .game files
 import json
 import time
-from eval import data_to_jnp_arrays
+
+import jax.numpy as jnp
+
+from run import data_to_jnp_arrays
 from game.game import load_game
 
 gamefiles = [
@@ -24,7 +27,7 @@ for file in gamefiles:
         games.append(game)
 data = [(g.masks[-1], g.winners) for g in games]
 arrays = data_to_jnp_arrays(data)
-print(f'Time to load games: {time.perf_counter() - start:0.2f} seconds')
+print(f'Time to load games: {time.perf_counter() - start:0.4f} seconds')
 
 fullfiles = [
     "0000dcc7-bd51-4430-8c55-c1961d7411de.game.full",
@@ -46,5 +49,34 @@ for file in fullfiles:
         games.append(game)
 data = [(g.masks[-1], g.winners) for g in games]
 arrays = data_to_jnp_arrays(data)
-print(f'Time to load games: {time.perf_counter() - start:0.2f} seconds')
+print(f'Time to load games: {time.perf_counter() - start:0.4f} seconds')
+
+packfiles = [
+    "0000dcc7-bd51-4430-8c55-c1961d7411de.game.full.npz",
+    "000273f8-f897-4b69-9456-0131a696eefb.game.full.npz",
+    "00048b75-a667-4efe-bee8-3d245eafda7f.game.full.npz",
+    "0017d274-f55e-4d6a-a2bc-42928ddcf1f5.game.full.npz",
+    "001be289-8503-48e2-8f4e-29c9fb491cf6.game.full.npz",
+    "001eb27b-bb2e-4564-afb1-c8e551bede13.game.full.npz",
+    "00224d32-8782-4520-9b3a-74fa614ad704.game.full.npz",
+    "00242bd5-7f81-4ec1-bf2b-fbea749e1866.game.full.npz",
+    "00245181-f720-447f-9433-a1d9439d2eaa.game.full.npz",
+    "002a88db-1803-4bb8-871b-1fbe381d7531.game.full.npz"
+]
+start = time.perf_counter()
+Xs = []
+Ys = []
+for file in packfiles:
+    with jnp.load(file, 'r') as f:
+        Xs.append(f['X'][-1:])
+        Ys.append(f['Y'][-1:])
+arrays = (jnp.concatenate(Xs), jnp.concatenate(Ys))
+print(f'Time to load games: {time.perf_counter() - start:0.4f} seconds')
+
+jnp.savez('test.npz', X=arrays[0], Y=arrays[1])
+start = time.perf_counter()
+with jnp.load('test.npz', 'r') as f:
+    arrays = (f['X'], f['Y'])
+    print(f'Time to load games: {time.perf_counter() - start:0.4f} seconds')
+
 

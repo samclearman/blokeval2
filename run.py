@@ -31,7 +31,7 @@ basic_image = modal.Image.debian_slim().pip_install(
 #     "recordtype",
 #     "jax[cuda12_pip]",
 # )
-training_image = modal.Image.debian_slim().run_commands(
+training_image = modal.Image.debian_slim(force_build=True).run_commands(
     'pip install --upgrade "jax[cuda11_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html'
 ).pip_install(
     "crayons",
@@ -55,7 +55,13 @@ def random_game(_):
     return game.random_game()
 
 @stub.function(image=training_image, gpu="any")
-def train(training_batches, test_set):
+def train(games):
+    data = [(g.masks[-1], g.winners) for g in games]
+    def batch():
+        for _ in range(1000):
+            yield data_to_jnp_arrays(random.sample(data[:int(len(data) * 0.8)], 128))
+    training_batches = batch()
+    test_set = data_to_jnp_arrays(data[int(len(data) * 0.8):])
     return _train(training_batches, test_set)
 
 def data_to_jnp_arrays(data):
@@ -86,18 +92,10 @@ def main(games_path: str):
                 f.write(g.json)
         games += new_games
     
-
-    print('We have the games')
-    
     # Train a model on the games
-    data = [(g.masks[-1], g.winners) for g in games]
-    def batch():
-        for _ in range(1000):
-            yield data_to_jnp_arrays(random.sample(data[:int(len(data) * 0.8)], 128))
-    training_batches = batch()
-    test_set = data_to_jnp_arrays(data[int(len(data) * 0.8):])
     print('Training model...')
-    evaluator = train(training_batches, test_set)
+    evaluator = train.call(games)
+
 
 if __name__ == '__main__':
     sig = inspect.signature(main.raw_f)

@@ -31,12 +31,13 @@ training_image = modal.Image.debian_slim(force_build=True).run_commands(
 def random_game(_):
     return game.random_game()
 
+n_batches = 10000
 @stub.function(image=training_image, gpu="any")
 def train(games, arrays):
     if (len(arrays[0])):
         X, Y = arrays
         def batch():
-            for i in range(1000):
+            for i in range(n_batches):
                 idxs = random.sample(range(int(len(X) * 0.8)), 128)
                 yield (X[idxs], Y[idxs])
         training_batches = batch()
@@ -45,7 +46,7 @@ def train(games, arrays):
 
     data = [(g.masks[-1], g.winners) for g in games]
     def batch():
-        for _ in range(1000):
+        for _ in range(n_batches):
             yield data_to_jnp_arrays(random.sample(data[:int(len(data) * 0.8)], 128))
     training_batches = batch()
     test_set = data_to_jnp_arrays(data[int(len(data) * 0.8):])

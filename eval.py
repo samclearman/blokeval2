@@ -60,15 +60,17 @@ def init_params_handpicked(key):
     return ((w, b),)
 
 n_epochs = 1
-lr = 0.1
+lr_initial = 1
+# lr_final = 0.0000001
 def train(training_batches, test_set):
     seed = pyrandom.randint(0, 1000)
     print("Seed {}".format(seed))
     key = random.PRNGKey(seed)
-    params = init_params_handpicked(key)
+    params = init_params(key)
     test_inputs, test_targets = test_set
-    print(f'{"":12} {"Train":25} {"Test":25}')
-    print(f'{"Batch":12} {"Accuracy":12} {"Loss":12} {"Accuracy":12} {"Loss":12}')
+    print(f'{"":19} {"Train":25} {"Test":25}')
+    print(f'{"Batch":6} {"LR":12} {"Accuracy":12} {"Loss":12} {"Accuracy":12} {"Loss":12}')
+    lr = lr_initial
     for epoch in range(n_epochs):
         for i, batch in enumerate(training_batches):
             train_inputs, train_targets = batch
@@ -76,8 +78,10 @@ def train(training_batches, test_set):
             training_accuracy = accuracy(params, train_inputs, train_targets)
             test_loss = loss(params, test_inputs, test_targets)
             test_accuracy = accuracy(params, test_inputs, test_targets)
-            print(f'{i:12} {training_accuracy:12.4f} {training_loss:12.4f} {test_accuracy:12.4f} {test_loss:12.4f}')
+            print(f'{i:6} {lr:12.9f} {training_accuracy:12.4f} {training_loss:12.4f} {test_accuracy:12.4f} {test_loss:12.4f}')
             params = update(params, train_inputs, train_targets, lr)
+            if i % 1000 == 999:
+                lr *= 0.1
     def evaluator(input):
         return predict(params, input)
     return evaluator

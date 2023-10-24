@@ -8,7 +8,7 @@ from uuid import uuid4 as uuid
 
 import jax.numpy as jnp
 
-from run import data_to_jnp_arrays
+from data import data_to_jnp_arrays
 from game import game
 
 
@@ -27,7 +27,9 @@ def batched(iterable, n):
     while batch := tuple(islice(it, n)):
         yield batch
 
+print(args.games_path)
 fullfiles = [f for f in os.listdir(args.games_path) if f.endswith('.full')]
+
 for batch in batched(fullfiles, args.batch_size):
     games = []
     for game_file in batch:

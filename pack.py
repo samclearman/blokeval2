@@ -5,7 +5,7 @@ import json
 
 import jax.numpy as jnp
 
-from run import data_to_jnp_arrays
+from data import data_to_jnp_arrays
 from game import game
 
 

@@ -2,6 +2,8 @@ import json
 import os
 import random as pyrandom
 
+from functools import reduce
+
 import jax.numpy as jnp
 
 from cloud import stub, basic_image
@@ -23,6 +25,7 @@ def load_batch(batch_dir):
             return combined['X'], combined['Y']
 
     # Load games
+    # this is broken see correct code in pack_batches.py
     games = []
     print(f'Loading games from {batch_dir}...')
     for game_file in [filename for filename in os.listdir(batch_dir) if filename.endswith('.full')]:
@@ -37,6 +40,7 @@ class Loader:
     def __init__(self, games_dir):
         self.games_dir = games_dir
         self.filters = []
+        self.transforms = []
     
     @property
     def batch_dirs(self):
@@ -48,10 +52,13 @@ class Loader:
     
     def filter(self, f):
         self.filters.append(f)
+    
+    def transform(self, t):
+        self.transforms.append(t)
 
     def samples(self, ns):
         if sum(ns) > self.dataset_size:
-            raise ValueError(f'Cannot sample {sum(ns)} games from {self.dataset_size}')
+            raise ValueError(f'Cannot sample {sum(ns)} positions from {self.dataset_size}')
         samples = []
 
         offset = 0
@@ -69,15 +76,22 @@ class Loader:
                 loaded.append((X[start:start + incr], Y[start:start + incr]))
                 offset += incr
                 n -= len(X)
-            samples.append((jnp.concatenate([X for X, _ in loaded]), jnp.concatenate([Y for _, Y in loaded])))
+            Xs = jnp.concatenate([X for X, _ in loaded])
+            Ys = jnp.concatenate([Y for _, Y in loaded])
+            Xs_t, Ys_t = [], []
+            for i in range(len(Xs)):
+                x_t, y_t = reduce(lambda x, t: t(x), self.transforms, (Xs[i], Ys[i]))
+                Xs_t.append(x_t)
+                Ys_t.append(y_t)
+            Xs = jnp.array(Xs_t)
+            Ys = jnp.array(Ys_t)
+            samples.append((Xs, Ys))
             if n > 0:
                 raise ValueError(f'Not enough data in dataset to sample {ns} games')
         return samples
 
 def batched(arrays, batch_size):
     X, Y = arrays
-    print(X.shape)
-    print(Y.shape)
     def batch():
         while True:
             idxs = jnp.array(pyrandom.sample(range(len(X)), batch_size))
@@ -86,3 +100,10 @@ def batched(arrays, batch_size):
 
 def exactly_one_winner(X, Y):
     return jnp.sum(Y, axis=1) == 1
+
+def shuffle_players(x_y):
+    x,y = x_y
+    s = pyrandom.sample([0,1,2,3], 4)
+    sx = jnp.concatenate([x[i * 400 : (i+1) * 400] for i in s])
+    sy = [y[i] for i in s]
+    return sx, sy

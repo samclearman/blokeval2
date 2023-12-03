@@ -9,7 +9,7 @@ import jax.numpy as jnp
 from cloud import stub, basic_image
 from game import game
 
-STORAGE_BATCH_SIZE = 10000
+BATCHFILE_NAME = 'batch.npz'
 
 @stub.function(image=basic_image)
 def random_game(_):
@@ -20,8 +20,8 @@ def data_to_jnp_arrays(data):
 
 def load_batch(batch_dir):
     X = None; Y = None
-    if (os.path.exists(os.path.join(batch_dir, 'final_positions.npz'))):
-        with jnp.load(os.path.join(batch_dir, 'final_positions.npz'), 'r') as combined:
+    if (os.path.exists(os.path.join(batch_dir, BATCHFILE_NAME))):
+        with jnp.load(os.path.join(batch_dir, BATCHFILE_NAME), 'r') as combined:
             return combined['X'], combined['Y']
 
     # Load games
@@ -48,7 +48,11 @@ class Loader:
 
     @property
     def dataset_size(self):
-        return STORAGE_BATCH_SIZE * len(self.batch_dirs)
+        s = 0
+        for batch_dir in self.batch_dirs:
+            with jnp.load(os.path.join(batch_dir, BATCHFILE_NAME), 'r') as combined:
+                s += len(combined['Y'])
+        return s
     
     def filter(self, f):
         self.filters.append(f)
@@ -61,33 +65,42 @@ class Loader:
             raise ValueError(f'Cannot sample {sum(ns)} positions from {self.dataset_size}')
         samples = []
 
-        offset = 0
+        current_batch_idx = 0
+        current_position = 0
         for n in ns:
             loaded = []
-            while n > 0 and offset < self.dataset_size:
-                start = offset % STORAGE_BATCH_SIZE
-                incr = min(n, 10000 - start)
-                X, Y = load_batch(self.batch_dirs[offset // STORAGE_BATCH_SIZE])
+            while n > 0:
+                X, Y = load_batch(self.batch_dirs[current_batch_idx])
                 mask = jnp.ones(len(X), dtype=bool)
                 for f in self.filters:
                     mask &= f(X, Y)
                 X = X[mask]
                 Y = Y[mask]
-                loaded.append((X[start:start + incr], Y[start:start + incr]))
-                offset += incr
-                n -= len(X)
+                right = min(current_position + n, len(X))
+                loaded.append((X[current_position:right],Y[current_position:right]))
+                n -= (right - current_position)
+                current_position = right
+                if (current_position >= len(X)):
+                    current_batch_idx += 1
+                    if current_batch_idx >= len(self.batch_dirs):
+                        raise ValueError(f'Less than {sum(ns)} positions in dataset after filters')
+                    current_position = 0
             Xs = jnp.concatenate([X for X, _ in loaded])
             Ys = jnp.concatenate([Y for _, Y in loaded])
-            Xs_t, Ys_t = [], []
-            for i in range(len(Xs)):
-                x_t, y_t = reduce(lambda x, t: t(x), self.transforms, (Xs[i], Ys[i]))
-                Xs_t.append(x_t)
-                Ys_t.append(y_t)
-            Xs = jnp.array(Xs_t)
-            Ys = jnp.array(Ys_t)
+            if (len(self.transforms)):
+                Xs_t, Ys_t = [], []
+                for i in range(len(Xs)):
+                    x_t, y_t = reduce(lambda x, t: t(x), self.transforms, (Xs[i], Ys[i]))
+                    Xs_t.append(x_t)
+                    Ys_t.append(y_t)
+                Xs = jnp.array(Xs_t)
+                Ys = jnp.array(Ys_t)
             samples.append((Xs, Ys))
             if n > 0:
-                raise ValueError(f'Not enough data in dataset to sample {ns} games')
+                raise ValueError(f'Not enough data in dataset to sample {sum(ns)} games')
+        for Xs, Ys in samples:
+            for X in Xs, Ys:
+                print(f'{X.size}*{X.itemsize}={X.size*X.itemsize} bytes ({X.dtype})')
         return samples
 
 def batched(arrays, batch_size):

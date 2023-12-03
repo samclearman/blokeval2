@@ -46,7 +46,7 @@ def accuracy(params, inputs, targets):
     accs = batched_accuracy(params, inputs, targets)
     return jnp.mean(accs)
 
-# @jit
+@jit
 def update(params, inputs, targets, lr, debug = {}):
     grads = grad(loss)(params, inputs, targets)
     if 'norm' in debug:
@@ -92,6 +92,7 @@ def make_evaluator(params):
         return predict(params, input, debug)
     return evaluator
 
+# jax.config.update("jax_transfer_guard", "log")
 n_epochs = 1
 lr = 0.1
 M1 = 0.01

@@ -1,6 +1,7 @@
 import json
 import os
 import random as pyrandom
+import time
 
 from functools import reduce
 
@@ -33,6 +34,27 @@ def load_batch(batch_dir):
             games.append(game.load_game(json.load(f)))
     return data_to_jnp_arrays(games)
 
+def load_batch_with_filters(batch_dir, filters):
+    X, Y = load_batch(batch_dir)
+    mask = jnp.ones(len(X), dtype=bool)
+    for f in filters:
+        mask &= f(X, Y)
+    X = X[mask]
+    Y = Y[mask]
+    return X,Y
+
+def transformed(X,Y,transforms):
+    if (not len(transforms)):
+        return X, Y
+    Xs_t, Ys_t = [], []
+    for i in range(len(Xs)):
+        x_t, y_t = reduce(lambda x, t: t(x), self.transforms, (Xs[i], Ys[i]))
+        Xs_t.append(x_t)
+        Ys_t.append(y_t)
+    Xs = jnp.array(Xs_t)
+    Ys = jnp.array(Ys_t)
+    return Xs, Ys
+
 def generate(n_games):
     return random_game.map(range(n_games))
 
@@ -40,7 +62,9 @@ class Loader:
     def __init__(self, games_dir):
         self.games_dir = games_dir
         self.filters = []
-        self.transforms = []
+        self.transforms = [] 
+        self.current_batch_idx = 0
+        self.current_position = 0
     
     @property
     def batch_dirs(self):
@@ -59,49 +83,49 @@ class Loader:
     
     def transform(self, t):
         self.transforms.append(t)
-
+    
     def samples(self, ns):
         if sum(ns) > self.dataset_size:
             raise ValueError(f'Cannot sample {sum(ns)} positions from {self.dataset_size}')
         samples = []
 
-        current_batch_idx = 0
-        current_position = 0
         for n in ns:
             loaded = []
             while n > 0:
-                X, Y = load_batch(self.batch_dirs[current_batch_idx])
-                mask = jnp.ones(len(X), dtype=bool)
-                for f in self.filters:
-                    mask &= f(X, Y)
-                X = X[mask]
-                Y = Y[mask]
-                right = min(current_position + n, len(X))
-                loaded.append((X[current_position:right],Y[current_position:right]))
-                n -= (right - current_position)
-                current_position = right
-                if (current_position >= len(X)):
-                    current_batch_idx += 1
-                    if current_batch_idx >= len(self.batch_dirs):
+                X, Y = load_batch_with_filters(self.batch_dirs[self.current_batch_idx], self.filters)
+                right = min(self.current_position + n, len(X))
+                loaded.append((X[self.current_position:right],Y[self.current_position:right]))
+                n -= (right - self.current_position)
+                self.current_position = right
+                if (self.current_position >= len(X)):
+                    self.current_batch_idx += 1
+                    if self.current_batch_idx >= len(self.batch_dirs):
                         raise ValueError(f'Less than {sum(ns)} positions in dataset after filters')
-                    current_position = 0
+                    self.current_position = 0
             Xs = jnp.concatenate([X for X, _ in loaded])
             Ys = jnp.concatenate([Y for _, Y in loaded])
-            if (len(self.transforms)):
-                Xs_t, Ys_t = [], []
-                for i in range(len(Xs)):
-                    x_t, y_t = reduce(lambda x, t: t(x), self.transforms, (Xs[i], Ys[i]))
-                    Xs_t.append(x_t)
-                    Ys_t.append(y_t)
-                Xs = jnp.array(Xs_t)
-                Ys = jnp.array(Ys_t)
-            samples.append((Xs, Ys))
+            samples.append(transformed(Xs, Ys, self.transforms))
             if n > 0:
                 raise ValueError(f'Not enough data in dataset to sample {sum(ns)} games')
-        for Xs, Ys in samples:
-            for X in Xs, Ys:
-                print(f'{X.size}*{X.itemsize}={X.size*X.itemsize} bytes ({X.dtype})')
         return samples
+
+    def batches(self, batch_size):
+        original_batch_idx = self.current_batch_idx
+        original_position = self.current_position
+        while True:
+            while self.current_batch_idx < len(self.batch_dirs):
+                # todo: be less lazy here with the remainders
+                print('Loading batch...')
+                start = time.perf_counter()
+                X, Y = load_batch_with_filters(self.batch_dirs[self.current_batch_idx], self.filters)
+                print(f'loaded in {time.perf_counter() - start} secs')
+                self.current_batch_idx += 1
+                self.current_position = 0
+                while len(X) - self.current_position > batch_size:
+                    yield X[self.current_position:self.current_position + batch_size], Y[self.current_position:self.current_position + batch_size]
+                    self.current_position += batch_size
+            self.current_batch_idx = original_batch_idx
+            self.current_position = original_position
 
 def batched(arrays, batch_size):
     X, Y = arrays

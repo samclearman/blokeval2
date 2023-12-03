@@ -17,7 +17,6 @@ def train(training_batches, test_set):
 
 @stub.local_entrypoint()
 def main(games_path: str = None):
-    n_training_games = 800000
     n_test_games = 80000
     batch_size = 512
     n_batches = 100000
@@ -30,12 +29,14 @@ def main(games_path: str = None):
     # Train a model on the games
     print('Loading samples...')
     loader = Loader(games_path)
+    print(f'Got {loader.dataset_size} samples (before filters)')
     loader.filter(exactly_one_winner)
+    # this is not performant so i preshuffled them on disk
     # loader.transform(shuffle_players)
-    training_set, test_set = loader.samples([n_training_games, n_test_games])
+    [test_set] = loader.samples([n_test_games])
     print('Training model...')
     start = time.perf_counter()
-    evaluator, params = train(islice(batched(training_set, batch_size), n_batches), test_set)
+    evaluator, params = train(islice(loader.batches(batch_size), n_batches), test_set)
     duration = time.perf_counter() - start
     print(f'trained on {n_batches} batches in {duration} seconds - {duration / n_batches} sec/batch')
     save_params('params.npz', params)

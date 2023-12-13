@@ -74,8 +74,14 @@ class Loader:
     def dataset_size(self):
         s = 0
         for batch_dir in self.batch_dirs:
-            with jnp.load(os.path.join(batch_dir, BATCHFILE_NAME), 'r') as combined:
-                s += len(combined['Y'])
+            if (os.path.exists(os.path.join(batch_dir, BATCHFILE_NAME))):
+                with jnp.load(os.path.join(batch_dir, BATCHFILE_NAME), 'r') as combined:
+                    s += len(combined['Y'])
+            else:
+                for game_file in [filename for filename in os.listdir(batch_dir) if filename.endswith('.full')]:
+                    with open(os.path.join(batch_dir, game_file), 'r') as f:
+                        s += len(json.load(f)['snapshots'])
+
         return s
     
     def filter(self, f):

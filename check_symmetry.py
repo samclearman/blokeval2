@@ -1,4 +1,4 @@
-from eval import load_params
+from model import load_params
 from inspect_params import support
 
 params = load_params('params.npz')

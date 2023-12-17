@@ -46,6 +46,7 @@ def play_game(p1, p2, p3, p4):
         player = players[b.next_player]
         move = player.next_move(g)
         g.play_move(move)
+        print(blob(g.current_snapshot))
     return g
 
 def load_move(json):
@@ -105,6 +106,10 @@ class Game:
     @property
     def masks(self):
         return [m1 + m2 + m3 + m4 for (m1, m2, m3, m4) in [masks(s) for s in self._snapshots]]
+
+    @property
+    def current_snapshot(self):
+        return self._snapshots[-1]
 
     @property
     def blobs(self):

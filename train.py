@@ -6,7 +6,7 @@ import time
 from uuid import uuid4 as uuid
 from itertools import islice
 
-from eval import train as _train, save_params
+from model import train as _train, save_params
 from cloud import stub, training_image
 from data import Loader, batched, exactly_one_winner, shuffle_players
 

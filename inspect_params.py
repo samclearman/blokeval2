@@ -1,6 +1,6 @@
 import jax.numpy as jnp
 
-from eval import make_evaluator, loss
+from model import make_evaluator, loss
 from data import data_to_jnp_arrays
 
 def max_outputs(params):

@@ -18,12 +18,14 @@ batched_dense = vmap(dense, in_axes=(None, 0))
 
 def probs(params, input):
     return jnn.softmax(dense(params, input))
+batched_probs = vmap(probs, in_axes=(None, 0))
 
 def predict(params, input, debug = {}):
     logits = dense(params, input)
     if 'logits' in debug:
         debug['logits'] = logits
     return jnp.argmax(logits)
+batched_predict = vmap(predict, in_axes=(None, 0, None))
 
 def error(params, input, target):
     logits = dense(params, input)
@@ -89,9 +91,23 @@ def load_params(path):
 
 def make_evaluator(params):
     def evaluator(input, debug = {}):
-        return predict(params, input, debug)
+        return batched_predict(params, input, debug)
     return evaluator
 
+def init_rng_and_params(seed):
+    key = random.PRNGKey(seed)
+    key, subkey = random.split(key)
+    params = init_params(subkey)
+    return key, params
+
+class Model:
+    def __init__(self, params):
+        self.params = params
+    
+    def predict(self, X):
+        p = batched_probs(self.params, X)
+        return(p)
+    
 # jax.config.update("jax_transfer_guard", "log")
 n_epochs = 1
 lr = 0.1
@@ -101,8 +117,7 @@ def train(training_batches, test_set):
     seed = pyrandom.randint(0, 1000)
     print("Seed {}".format(seed))
     print(f'Magic numbers: {lr=} {M1=} {M2=}')
-    key = random.PRNGKey(seed)
-    params = init_params(key)
+    key, params =  init_rng_and_params(seed)
     test_inputs, test_targets = test_set
     print(f'{"":12} {"Train":25} {"Test":25}')
     print(f'{"Batch":12} {"Accuracy":12} {"Loss":12} {"Accuracy":12} {"Loss":12}            |Δ|')

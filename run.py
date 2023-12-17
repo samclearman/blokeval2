@@ -1,4 +1,4 @@
-from eval import load_params
+from model import load_params
 from game.game import random_game
 from inspect_params import prediction_logits_and_loss
 

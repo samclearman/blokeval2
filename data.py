@@ -43,12 +43,12 @@ def load_batch_with_filters(batch_dir, filters):
     Y = Y[mask]
     return X,Y
 
-def transformed(X,Y,transforms):
+def transformed(Xs,Ys,transforms):
     if (not len(transforms)):
-        return X, Y
+        return Xs, Ys
     Xs_t, Ys_t = [], []
     for i in range(len(Xs)):
-        x_t, y_t = reduce(lambda x, t: t(x), self.transforms, (Xs[i], Ys[i]))
+        x_t, y_t = reduce(lambda x, t: t(x), transforms, (Xs[i], Ys[i]))
         Xs_t.append(x_t)
         Ys_t.append(y_t)
     Xs = jnp.array(Xs_t)
